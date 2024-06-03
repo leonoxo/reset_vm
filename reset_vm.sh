@@ -35,23 +35,23 @@ configure_network() {
         sudo bash -c "cat > /etc/netplan/$config_file <<EOL
 network:
   version: 2
-  renderer: networkd
   ethernets:
     $interface:
       dhcp4: no
       addresses:
         - $new_ip/$new_subnet
-      gateway4: $new_gateway
+      routes:
+        - to: default
+          via: $new_gateway
       nameservers:
-          addresses:
-            - $new_dns
+        addresses:
+          - $new_dns
 EOL"
     else
         echo "Setting DHCP for interface $interface"
         sudo bash -c "cat > /etc/netplan/$config_file <<EOL
 network:
   version: 2
-  renderer: networkd
   ethernets:
     $interface:
       dhcp4: yes
@@ -123,7 +123,10 @@ main() {
         break
     done
 
-    ip_type=$(prompt_input "Enter IP type (static/dhcp)")
+    echo "Select IP type:"
+    select ip_type in "static" "dhcp"; do
+        break
+    done
 
     if [ "$ip_type" = "static" ]; then
         new_ip=$(prompt_input "Enter new IP address")
