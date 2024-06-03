@@ -12,7 +12,9 @@ set_hostname() {
     echo "Setting hostname to $new_hostname"  # 輸出設置主機名的信息
     sudo hostnamectl set-hostname "$new_hostname"  # 使用hostnamectl設置新主機名
     echo "$new_hostname" | sudo tee /etc/hostname  # 將新主機名寫入/etc/hostname文件
-    sudo sed -i "s/127.0.0.1 .*/127.0.0.1 $new_hostname/" /etc/hosts  # 更新/etc/hosts文件中的主機名
+
+    # 刪除/etc/hosts文件中的原有127.0.0.1條目並插入新的條目
+    sudo sed -i "/127.0.0.1/c\127.0.0.1 $new_hostname" /etc/hosts
 }
 
 # 函數：列出網絡接口
