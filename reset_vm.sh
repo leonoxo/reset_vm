@@ -45,7 +45,8 @@ network:
         - to: default
           via: $new_gateway
       nameservers:
-        addresses: [${new_dns[*]}]
+        addresses:
+          - ${new_dns[@]}
 EOL"
     else
         echo "Setting DHCP for interface $interface"
