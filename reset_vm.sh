@@ -28,7 +28,8 @@ configure_network() {
     local new_ip=$4
     local new_subnet=$5
     local new_gateway=$6
-    local new_dns=$7
+    shift 6
+    local new_dns=("$@")
 
     if [ "$ip_type" = "static" ]; then
         echo "Setting static IP for interface $interface"
@@ -44,8 +45,7 @@ network:
         - to: default
           via: $new_gateway
       nameservers:
-        addresses:
-          - $new_dns
+        addresses: [${new_dns[*]}]
 EOL"
     else
         echo "Setting DHCP for interface $interface"
@@ -132,11 +132,14 @@ main() {
         new_ip=$(prompt_input "Enter new IP address")
         new_subnet=$(prompt_input "Enter subnet mask (e.g., 24 for 255.255.255.0)")
         new_gateway=$(prompt_input "Enter gateway IP address")
-        new_dns=$(prompt_input "Enter DNS server IP address")
+        
+        echo "Enter DNS server IP addresses (comma separated):"
+        read -p "Enter DNS server IP addresses: " dns_input
+        IFS=',' read -r -a new_dns <<< "$dns_input"
     fi
 
     set_hostname "$new_hostname"
-    configure_network "$config_file" "$interface" "$ip_type" "$new_ip" "$new_subnet" "$new_gateway" "$new_dns"
+    configure_network "$config_file" "$interface" "$ip_type" "$new_ip" "$new_subnet" "$new_gateway" "${new_dns[@]}"
     regenerate_ssh_keys
     reset_machine_id
     clean_cloud_init
