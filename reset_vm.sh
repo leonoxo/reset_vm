@@ -38,7 +38,6 @@ network:
   version: 2
   ethernets:
     $interface:
-      dhcp4: no
       addresses:
         - $new_ip/$new_subnet
       routes:
@@ -46,7 +45,8 @@ network:
           via: $new_gateway
       nameservers:
         addresses:
-          - ${new_dns[@]}
+          - ${new_dns[0]}
+          - ${new_dns[1]}
 EOL"
     else
         echo "Setting DHCP for interface $interface"
