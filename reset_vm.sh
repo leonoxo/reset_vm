@@ -45,9 +45,13 @@ network:
           via: $new_gateway
       nameservers:
         addresses:
-          - ${new_dns[0]}
-          - ${new_dns[1]}
 EOL"
+        for dns in "${new_dns[@]}"; do
+            if [ -n "$dns" ]; then
+                sudo bash -c "echo '          - $dns' >> /etc/netplan/$config_file"
+            fi
+        done
+        sudo bash -c "echo '    ' >> /etc/netplan/$config_file"
     else
         echo "Setting DHCP for interface $interface"
         sudo bash -c "cat > /etc/netplan/$config_file <<EOL
@@ -134,9 +138,12 @@ main() {
         new_subnet=$(prompt_input "Enter subnet mask (e.g., 24 for 255.255.255.0)")
         new_gateway=$(prompt_input "Enter gateway IP address")
         
-        echo "Enter DNS server IP addresses (comma separated):"
-        read -p "Enter DNS server IP addresses: " dns_input
-        IFS=',' read -r -a new_dns <<< "$dns_input"
+        echo "Enter primary DNS server IP address:"
+        read -p "Primary DNS: " dns1
+        echo "Enter secondary DNS server IP address (leave blank if none):"
+        read -p "Secondary DNS: " dns2
+        
+        new_dns=("$dns1" "$dns2")
     fi
 
     set_hostname "$new_hostname"
