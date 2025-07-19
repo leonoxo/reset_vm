@@ -1,20 +1,33 @@
-Ubuntu 24.04 VM Reset Command:
-# 使用curl下載腳本並運行
-curl -fsSL https://raw.githubusercontent.com/leonoxo/reset_vm/main/reset_vm_ubuntu.sh | bash
+# Ubuntu VM 重設與初始化腳本
 
-curl -fsSL 這四個參數字母代表以下意思：
+這是一個用於快速重設和初始化 Ubuntu 虛擬機（VM）的 Bash 腳本。它能自動化處理網路設定、主機名稱變更以及系統唯一識別碼的重設，特別適用於從範本複製或大量部署 VM 後的初始設定。
 
-	•	-f: Fail silently. 當 HTTP 狀態碼大於或等於 400 時，curl 會退出並不會輸出錯誤信息到標準輸出。這樣可以避免下載失敗時顯示錯誤頁面的 HTML 內容。
-	•	-s: Silent mode. 使 curl 在執行過程中不顯示進度條或錯誤信息。這樣可以使輸出更加簡潔。
-	•	-S: Show error. 配合 -s 使用，使 curl 在 silent 模式下如果出錯仍然顯示錯誤信息。
-	•	-L: Location. 如果下載的 URL 有重定向 (3XX 狀態碼)，curl 會跟隨重定向 URL。
+## ✨ 功能亮點
 
-組合起來，curl -fsSL 的作用是：
+*   **互動式設定**：透過簡單的問答引導，輕鬆完成所有設定。
+*   **網路組態**：支援 DHCP 或靜態 IP 的設定，並自動生成 Netplan 設定檔。
+*   **系統識別碼重設**：
+    *   安全地重新生成 SSH **主機金鑰**。
+    *   重設 `machine-id`，避免在複製的 VM 中出現重複 ID。
+*   **狀態清理**：清理 `cloud-init` 的狀態和舊的 udev 網路規則。
+*   **安全性**：
+    *   內建錯誤處理機制，任何步驟失敗都會立即停止腳本。
+    *   在執行任何變更前，會顯示設定總覽並要求使用者最終確認。
+    *   自動備份現有的 Netplan 設定檔。
+*   **輸入驗證**：驗證使用者輸入的網路參數格式，提高可靠性。
 
-	•	安靜地下載文件，不顯示進度條。
-	•	在遇到 HTTP 錯誤時，退出並顯示錯誤信息。
-	•	跟隨任何重定向。
+## 🚀 使用方法
 
-這些選項結合使用時，可以更可靠地從 URL 下載文件，並在出現問題時給出適當的錯誤信息。
+您可以直接透過 `curl` 下載並執行此腳本。請在您的 Ubuntu VM 終端機中執行以下指令：
 
-完整的命令用於直接下載並執行腳本：
+```bash
+curl -fsSL https://raw.githubusercontent.com/leonoxo/reset_vm/main/reset_vm_ubuntu.sh | sudo bash
+```
+
+腳本將會開始執行，並引導您完成後續的設定步驟。
+
+## ⚠️ 注意事項
+
+*   **需要 Sudo 權限**：此腳本需要 `sudo` 權限來修改系統層級的設定檔和服務。
+*   **將會重新啟動**：為了套用所有變更，腳本在成功執行完所有任務後，會自動重新啟動您的系統。
+*   **僅適用於 Ubuntu**：此腳本主要針對使用 Netplan 進行網路管理的 Ubuntu 系統設計。

@@ -1,9 +1,35 @@
 #!/bin/bash
 
+# 啟用錯誤即退出的功能，並在指令失敗時顯示錯誤訊息
+set -e
+trap 'echo "Error on line $LINENO: command exited with status $?."' ERR
+
 # 函數：提示用戶輸入
 prompt_input() {
     read -p "$1: " input  # 提示用戶輸入並讀取輸入值
     echo "$input"  # 返回輸入值
+}
+
+# 函數：驗證IP地址格式
+validate_ip() {
+    local ip=$1
+    if [[ $ip =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        return 0
+    else
+        echo "Error: Invalid IP address format for '$ip'" >&2
+        return 1
+    fi
+}
+
+# 函數：驗證子網掩碼格式
+validate_subnet() {
+    local subnet=$1
+    if [[ $subnet -ge 0 && $subnet -le 32 ]]; then
+        return 0
+    else
+        echo "Error: Invalid subnet mask format for '$subnet'. Must be between 0 and 32." >&2
+        return 1
+    fi
 }
 
 # 函數：設置主機名
@@ -32,6 +58,10 @@ configure_network() {
     local new_gateway=$6  # 獲取新的網關
     shift 6  # 移動參數位置以獲取DNS伺服器地址
     local new_dns=("$@")  # 獲取DNS伺服器地址
+
+    # 備份原始的 Netplan 設定檔
+    sudo cp "/etc/netplan/$config_file" "/etc/netplan/$config_file.bak"
+    echo "Backed up existing netplan config to /etc/netplan/$config_file.bak"
 
     if [ "$ip_type" = "static" ]; then  # 如果IP類型是靜態
         echo "Setting static IP for interface $interface"  # 輸出設置靜態IP的信息
@@ -69,12 +99,11 @@ EOL"
     sudo netplan apply  # 應用網絡配置
 }
 
-# 函數：重新生成SSH密鑰
-regenerate_ssh_keys() {
-    echo "Regenerating SSH keys"  # 輸出重新生成SSH密鑰的信息
-    rm -f ~/.ssh/id_rsa ~/.ssh/id_rsa.pub  # 刪除現有的SSH密鑰
-    ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""  # 生成新的SSH密鑰
-    cat ~/.ssh/id_rsa.pub  # 顯示新生成的公鑰
+# 函數：重新生成SSH主機密鑰
+regenerate_ssh_host_keys() {
+    echo "Regenerating SSH host keys"  # 輸出重新生成SSH主機密鑰的信息
+    sudo rm -f /etc/ssh/ssh_host_*_key*  # 刪除現有的SSH主機密鑰
+    echo "SSH host keys will be regenerated on reboot." # 提示金鑰將在重啟後重新生成
 }
 
 # 函數：重設machine-id
@@ -138,20 +167,45 @@ main() {
 
     if [ "$ip_type" = "static" ]; then  # 如果選擇靜態IP
         new_ip=$(prompt_input "Enter new IP address")  # 提示輸入新IP地址並讀取輸入值
+        validate_ip "$new_ip"
         new_subnet=$(prompt_input "Enter subnet mask (e.g., 24 for 255.255.255.0)")  # 提示輸入子網掩碼並讀取輸入值
+        validate_subnet "$new_subnet"
         new_gateway=$(prompt_input "Enter gateway IP address")  # 提示輸入網關地址並讀取輸入值
+        validate_ip "$new_gateway"
         
         echo "Enter primary DNS server IP address:"  # 提示輸入主要DNS伺服器地址
         read -p "Primary DNS: " dns1  # 讀取主要DNS伺服器地址
+        validate_ip "$dns1"
         echo "Enter secondary DNS server IP address (leave blank if none):"  # 提示輸入次要DNS伺服器地址（如果沒有則留空）
         read -p "Secondary DNS: " dns2  # 讀取次要DNS伺服器地址
+        if [ -n "$dns2" ]; then
+            validate_ip "$dns2"
+        fi
         
         new_dns=("$dns1" "$dns2")  # 將讀取的DNS地址存入數組
     fi
 
+    # 顯示摘要並要求使用者確認
+    echo "----------------------------------------"
+    echo "Summary of changes:"
+    echo "  New hostname: $new_hostname"
+    echo "  Network interface: $interface"
+    echo "  IP type: $ip_type"
+    if [ "$ip_type" = "static" ]; then
+        echo "  IP address: $new_ip/$new_subnet"
+        echo "  Gateway: $new_gateway"
+        echo "  DNS servers: ${new_dns[*]}"
+    fi
+    echo "----------------------------------------"
+    read -p "Do you want to apply these changes and reboot? (yes/no): " confirm
+    if [ "$confirm" != "yes" ]; then
+        echo "Aborted by user."
+        exit 0
+    fi
+
     set_hostname "$new_hostname"  # 設置主機名
     configure_network "$config_file" "$interface" "$ip_type" "$new_ip" "$new_subnet" "$new_gateway" "${new_dns[@]}"  # 配置網絡
-    regenerate_ssh_keys  # 重新生成SSH密鑰
+    regenerate_ssh_host_keys  # 重新生成SSH主機密鑰
     reset_machine_id  # 重設machine-id
     clean_cloud_init  # 清理cloud-init狀態
     remove_udev_rules  # 移除udev規則
